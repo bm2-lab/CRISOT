@@ -29,8 +29,6 @@ class CRISOT:
         if opti_th == None:
             opti_th = 0.8
         self.opti_th = opti_th
-        if prob_weight == 'default':
-            prob_weight = weights
         self.prob_weight = prob_weight
         self.bins = bins
 
