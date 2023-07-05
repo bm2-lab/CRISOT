@@ -1,4 +1,4 @@
-# CRISOT: Genome-wide CRISPR off-target prediction and optimization based on molecular interaction fingerprints
+# CRISOT: Genome-wide CRISPR off-target prediction and optimization based on RNA-DNA interaction fingerprints
 
 ## Introduction
 The powerful CRISPR-Cas9 genome editing system is hindered by its off-target effects. Although in silico tools have been developed for single-strand guide RNA (sgRNA) design and CRISPR off-target evaluation, the genome-wide CRISPR off-target prediction performance is limited. In this study, we proposed that the modelling of molecular interactions within the Cas9-sgRNA-DNA complex can substantially improve the genome-wide off-target prediction. To this end, we systematically performed molecular dynamics (MD) simulations to capture the molecular interaction features of the CRISPR-Cas9 system. CRISOT, which is a powerful tool package suite that contains various modules for genome-wide CRISPR off-target evaluation and sgRNA optimization, is presented. 
@@ -16,7 +16,7 @@ Collectively, the CRISOT suite provides an accurate and comprehensive evaluation
 
 ## Dependencies
 * Python3
-  * xgboost==1.3.3
+  * xgboost==1.7.3
   * pandas
   * numpy
 * Reference genome file (Can be downloaded from the [UCSC website](https://hgdownload.soe.ucsc.edu/downloads.html), hg38 is recommended)
@@ -36,8 +36,8 @@ CRISOT suite includes several methods for off-target prediction and sgRNA optimi
 2. **scores**: Batch calculation of CRISOT-Score, requires [--csv], options [--on_item, --off_item, --out];
 3. **spec**: Calculate CRISOT-Spec, on-target sequence must be in the first line, requires [--csv], options [--on_item, --off_item];
 4. **off_spec**: Perform Cas-Offinder search and calculate CRISOT-Spec, requires [--sgr, --tar, --genome], options [--mm, --dev];
-5. **rescore**: Rescoring CHOPCHOP results by CRISOT-Score and CRISOT-Spec, requires [--tsv, --genome], options [--mm, --dev, --out];
-6. **opti**: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --percent_activity_file, --percent_activity, --mm, --dev, --out];
+5. **rescore**: Rescoring sgRNAs by CRISOT-Score and CRISOT-Spec, requires [--tsv, --genome], options [--mm, --dev, --out];
+6. **opti**: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --mm, --dev, --out];
 7. **crisot_fp**: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out]
 
 ### score
@@ -49,7 +49,7 @@ python CRISOT.py score --sgr GAGTCCGAGCAGAAGAAGAANGG --tar GAGTCCGAGCAGAAGAAGAAN
 
 # output:
 CRISOT-Score: 
-0.8840074454574047
+0.9473928688501404
 ```
 
 ```bash
@@ -58,7 +58,7 @@ python CRISOT.py score --sgr GAGTCCGAGCAGAAGAAGAANGG --tar GAGTCCGAGGAGAAGACGAAG
 
 # output:
 CRISOT-Score: 
-0.7289569762797228
+0.6892195294509914
 
 ```
 NOTE: sgRNA and target sequences should be 23-nt, with NGG PAM.
@@ -83,7 +83,7 @@ python CRISOT.py spec --csv example/example.csv
 
 # output:
 CRISOT-Spec: 
-0.8770946555289679
+0.8296024039222938
 
 ```
 NOTE: Off-target sequences in the csv file should be of the same sgRNA. On-target sequence must be in the first line.
@@ -96,7 +96,7 @@ python CRISOT.py off_spec --sgr GAGTCCGAGCAGAAGAAGAANGG --tar GAGTCCGAGCAGAAGAAG
 
 # output:
 CRISOT-Spec: 
-0.9338163280399644
+0.912578202248319
 
 ```
 NOTE: 1. Use the proper genome reference file. 2. Change the *--dev* if CUDA error occurs.
@@ -107,9 +107,9 @@ Rescoring and reranking the designed sgRNAs using the CRISOT-Score and CRISOT-Sp
 
 ```bash
 
-python CRISOT.py rescore --tsv example/example_tsv.tsv --genome data/test_genome.fa --out example/CRISOT_rescore_example_out.tsv
+python CRISOT.py rescore --txt example/example_sgRNAs.txt --genome data/test_genome.fa --out example/CRISOT_rescore_example_out.csv
 
-# output rescoring results in file example/CRISOT_rescore_example_out.tsv
+# output rescoring results in file example/CRISOT_rescore_example_out.csv
 
 ```
 NOTE: The input tsv file should contain sgRNA sequences in the 'Target sequence' column.
@@ -123,15 +123,7 @@ python CRISOT.py opti --tar GAGTCCGAGGAGAAGACGAAGGG --genome data/test_genome.fa
 # output optimization results: example/CRISOT-Opti_example_out.csv
 
 ```
-Users can also use the rules of percent-activity to get an optimized sgRNA with more reliable on-target efficiency, e.g.,
-```bash
-
-python CRISOT.py opti --tar GAGTCCGAGGAGAAGACGAAGGG --genome data/test_genome.fa --out example/CRISOT-Opti_percent_activity0.6_example_out.csv --percent_activity_file data/cd33_mismatch_dlfc.csv --percent_activity 0.6
-
-# output optimization results under the rules of percent-activity: example/CRISOT-Opti_percent_activity0.6_example_out.csv
-
-```
-NOTE: The default CRISOT-Score threshold for the mutated sgRNAs are 0.8.
+NOTE: The default CRISOT-Score threshold for the mutated sgRNAs is 0.8.
 
 ### crisot_fp
 Evaluates the off-target effects using the XGBoost models trained using the CRISOT-FP, e.g.,

@@ -2,28 +2,26 @@ import pandas as pd
 import numpy as np
 import os
 import pickle
+import time
 
 pwd = os.path.dirname(os.path.realpath(__file__))
 
-def a_b_cal(param_read):
-    max_val = param_read.values.max(axis=0)
-    min_val = param_read.values.min(axis=0)
-    min_match = param_read.loc[['AA', 'CC', 'GG', 'TT'], :].values.min(axis=0)
-    max_sc = max_val.sum()
-    min_sc = np.append(np.sort(min_match)[:-6], np.sort(min_val)[:6]).sum()
-    a = 1 / (max_sc - min_sc)
-    b = -(min_sc / (max_sc - min_sc))
-    return [a, b]
+def load_pkl(pkl):
+    with open(pkl, 'rb') as f:
+        data = pickle.load(f)
+    return data
+
+param_df, a_b, bins, weights = load_pkl(os.path.join(pwd, 'models/crisot_score_param.pkl'))
 
 class CRISOT:
-    def __init__(self, param, ref_genome, a_b=None, cutoff=None, opti_th=None, prob_weight='default', bins=None):
+    def __init__(self, param, ref_genome, a_b=a_b, cutoff=None, opti_th=None, prob_weight=weights, bins=bins):
         self.feat_dict = {}
         for key in param.index:
             for i in range(20):
                 self.feat_dict['Pos' + str(i + 1) + '_' + key] = param.loc[key, :].values[i]
         self.ref_genome = ref_genome
         if a_b == None:
-            a_b = a_b_cal(param)
+            a_b = [1,0]
         self.a_b = a_b
         if cutoff == None:
             cutoff = 0.
@@ -32,15 +30,20 @@ class CRISOT:
             opti_th = 0.8
         self.opti_th = opti_th
         if prob_weight == 'default':
-            prob_weight = np.array([0, 0.000007, 0.000025, 0.000413, 0.006692, 0.056202, 0.239645, 0.652542, 1.0])
+            prob_weight = weights
         self.prob_weight = prob_weight
-        if bins == None:
-            bins = [0, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 1.0]
         self.bins = bins
+
+        self.proj_t = time.time()
+
 
     def single_score_(self, on_seq, off_seq):
         y_pred = np.array([self.feat_dict['Pos' + str(j + 1) + '_' + on_seq[j] + off_seq[j]] for j in range(20)]).sum()
         y_pred = y_pred * self.a_b[0] + self.a_b[1]
+        if y_pred > 1:
+            y_pred = 1.
+        elif y_pred < 0:
+            y_pred = 0.
         return y_pred
 
     def score(self, data_path=None, data_df=None, On='On', Off='Off', Active=None):
@@ -75,24 +78,6 @@ class CRISOT:
         else:
             return aggre
 
-    def aggre(self, data_path=None, data_df=None, On='On', Off='Off', target=None, out_df=False, out_cnt=True):
-        if data_df is not None:
-            data_set = data_df
-        else:
-            data_set = pd.read_csv(data_path, sep=",", header=0, index_col=None)
-        offt = data_set.loc[:, Off].values
-        if target is not None:
-            assert len(target) == 23, 'target sequence must have 23 nt'
-            assert data_set.loc[offt == target, :].shape[0] > 0, 'No sequence match the target sequence'
-            data_set = pd.concat([data_set.loc[offt == target, :], data_set.loc[offt != target, :]])
-        y_pred = self.score(data_df=data_set, On=On, Off=Off, Active=None)
-        aggre = self.single_aggre_(y_pred[1:], out_cnt)
-        if out_df:
-            data_set['CRISOT-Score'] = y_pred
-            return aggre, data_set
-        else:
-            return aggre
-
     def single_spec_(self, y_pred):
         aggre = self.single_aggre_(y_pred, out_cnt=False)
         spec = 10 / (10 + aggre)
@@ -121,12 +106,12 @@ class CRISOT:
             offtar_search = offtar_search
         else:
             offtar_search = os.path.join(pwd, 'script/casoffinder_genome.sh')
-        if os.path.exists('.temp_casoffinder.out'):
-            os.system('rm .temp_casoffinder.out')
-        if os.path.exists('.temp_casoffinder.in'):
-            os.system('rm .temp_casoffinder.in')
-        os.system("sh {} {} {} {} {}".format(offtar_search, sgrna[:20], self.ref_genome, mm, dev))
-        data_set = pd.read_csv('.temp_casoffinder.out', sep="\t", header=None, index_col=None)
+        if os.path.exists(f'.temp_{self.proj_t}_casoffinder.out'):
+            os.system(f'rm .temp_{self.proj_t}_casoffinder.out')
+        if os.path.exists(f'.temp_{self.proj_t}_casoffinder.in'):
+            os.system(f'rm .temp_{self.proj_t}_casoffinder.in')
+        os.system("sh {} {} {} {} {} {}".format(offtar_search, sgrna[:20], self.ref_genome, mm, dev, self.proj_t))
+        data_set = pd.read_csv(f'.temp_{self.proj_t}_casoffinder.out', sep="\t", header=None, index_col=None)
         offt = data_set.loc[:, 3].values
         offt = np.array([str.upper(t) for t in offt])
         data_set.loc[:, 3] = offt
@@ -140,13 +125,14 @@ class CRISOT:
             spec, out_dset = self.spec(data_df=data_set, On=0, Off=3, out_df=out_df)
         else:
             spec = self.spec(data_df=data_set, On=0, Off=3)
-        os.system("rm .temp_casoffinder.out")
+        os.system(f"rm .temp_{self.proj_t}_casoffinder.out")
         if out_df:
             return spec, out_dset
         else:
             return spec
 
-    def opti(self, target, opti_type=None, ref=None, offtar_search=None, accepted_mutate=None, cd33cut=0.6, mm=6, dev='G0'):
+
+    def opti(self, target, opti_type=None, ref=None, offtar_search=None, mm=6, dev='G0'):
         # opti_type: how to mutate the sgRNA? default is 3 types of mutations for each position
         if opti_type == None:
             opti_pos = []
@@ -180,18 +166,12 @@ class CRISOT:
         else:
             opti_nt = pd.read_csv(opti_type, header=0, index_col=0)
 
-        mut = [None]
-        if accepted_mutate is not None:
-            if type(accepted_mutate) == pd.core.frame.DataFrame:
-                accepted_list = accepted_mutate.loc[accepted_mutate['Percent-Active']>=cd33cut, ['Position', 'Mismatch']].values
-                for i in range(accepted_list.shape[0]):
-                    mut.append(str(accepted_list[i,0]) + accepted_list[i,1])
-        accepted_list = mut
 
         results = []
         # calculate WT spec score
         spec, out_df = self.CasoffinderSpec_(target, target, out_df=True, offtar_search=offtar_search, mm=mm, dev=dev)
-        cnt_results = self.score_bin_(out_df.loc[:, 'CRISOT-Score'].values[1:])[-4:]
+        cnt_results = self.score_bin_(out_df.loc[:, 'CRISOT-Score'].values[1:])[-5:]
+        cnt_results = np.append(cnt_results[:3], cnt_results[3:].sum())
         if ref is not None:
             ref_merge = ref.loc[:, ['Offtarget_Sequence', 'GUIDE-Seq Reads']]
             ref_merge.columns = [3, 'Reads']
@@ -212,14 +192,11 @@ class CRISOT:
             nt = opti_nt.loc[i, 'nt']
             if target[pos - 1] != nt:
                 new_sgrna = target[:pos - 1] + nt + target[pos:]
-                if accepted_mutate is not None:
-                    mut_nt = str(pos) + nt + target[pos-1]
-                else:
-                    mut_nt = None
-                if (self.single_score_(new_sgrna, target) > self.opti_th) and (mut_nt in accepted_list):
+                if self.single_score_(new_sgrna, target) > self.opti_th:
                 
                     spec, out_df = self.CasoffinderSpec_(new_sgrna, target, out_df=True, offtar_search=offtar_search, mm=mm, dev=dev)
-                    cnt_results = self.score_bin_(out_df.loc[:, 'CRISOT-Score'].values[1:])[-4:]
+                    cnt_results = self.score_bin_(out_df.loc[:, 'CRISOT-Score'].values[1:])[-5:]
+                    cnt_results = np.append(cnt_results[:3], cnt_results[3:].sum())
                     if ref is not None:
                         out_merge = pd.merge(out_df.iloc[1:,:], ref_merge, how='left', on=[3], sort=False)
                         out_merge.fillna(0, inplace=True)
@@ -257,62 +234,15 @@ class CRISOT:
         results_out.index = np.arange(results_out.shape[0])
         return results_out.iloc[:, :-1]
 
-    def opti_chopchop(self, chop_tsv=None, chop_df=None, top=10, opti_type=None, offtar_search=None, mm=6, dev='G0', 
-                      accepted_mutate=None, cd33cut=0.6):
-        if chop_tsv is not None:
-            if len(chop_tsv) > 4:
-                if chop_tsv[-4:] == '.tsv':
-                    chop_tsv = chop_tsv[:-4]
-            dataread = pd.read_csv(chop_tsv + '.tsv', sep='\t', header=0, index_col=None)
-        
-        else:
-            dataread = chop_df
-        
-        if top is None:
-            targets = dataread.iloc[:, 0].values
-        else:
-            if dataread.shape[0] > top:
-                targets = dataread.loc[:, 'Target sequence'].values[:top]
-            else:
-                targets = dataread.loc[:, 'Target sequence'].values
-        # targets = np.array([t[:20] for t in targets])
-
-        results_wt, results_best = [], []
-        for target_seq in targets:
-            results_df = self.opti(target_seq, opti_type=opti_type, ref=None, offtar_search=offtar_search, mm=mm, dev=dev, 
-                                    accepted_mutate=accepted_mutate, cd33cut=cd33cut)
-            results_wt.append(results_df.iloc[0, :].values[3:-1])
-            results_best.append(results_df.iloc[1, :].values)
-            results_df.to_csv('results_{}.csv'.format(target_seq))
-        results_wt = np.array(results_wt)
-        results_best = np.array(results_best)
-        results = np.hstack([results_best[:, :2], results_wt, results_best[:, 2:]])
-        col_name = np.append(np.append(results_df.columns[:2], ['WT_' + i for i in results_df.columns[3:-1]]), results_df.columns[2:])
-        results_out = pd.DataFrame(results, columns=col_name)
-        results_out.to_csv('ResultsSummary.csv')
-        return results_out
-
-    def rescore_chopchop(self, chop_tsv=None, chop_df=None, top=None, ref=None, offtar_search=None, mm=6, dev='G0'):
-        if chop_tsv is not None:
-            if len(chop_tsv) > 4:
-                if chop_tsv[-4:] == '.tsv':
-                    chop_tsv = chop_tsv[:-4]
-            dataread = pd.read_csv(chop_tsv + '.tsv', sep='\t', header=0, index_col=None)
-        
-        else:
-            dataread = chop_df
-        
-        if top is not None:
-            if dataread.shape[0] > top:
-                dataread = dataread.iloc[:top, :]
-        targets = dataread.loc[:, 'Target sequence'].values
-
+    def rescore(self, targets, ref=None, offtar_search=None, mm=6, dev='G0'):
+        dataread = pd.DataFrame(np.array([np.arange(len(targets)) + 1, targets]).T, columns=['Ori_Rank', 'Target sequence'])
         results = []
         # calculate WT spec score
-        for i in range(dataread.shape[0]):
+        for i in range(len(targets)):
             target = targets[i]
             spec, out_df = self.CasoffinderSpec_(target, target, out_df=True, offtar_search=offtar_search, mm=mm, dev=dev)
-            cnt_results = self.score_bin_(out_df.loc[:, 'CRISOT-Score'].values[1:])[-4:]
+            cnt_results = self.score_bin_(out_df.loc[:, 'CRISOT-Score'].values[1:])[-5:]
+            cnt_results = np.append(cnt_results[:3], cnt_results[3:].sum())
             if ref is not None:
                 ref_merge = ref.loc[:, ['Offtarget_Sequence', 'GUIDE-Seq Reads']]
                 ref_merge.columns = [3, 'Reads']
