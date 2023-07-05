@@ -8,46 +8,43 @@ from utils import *
 import os
 import pickle
 
-__version__ = 'v0.5'
+__version__ = 'v0.4'
 pwd = os.path.dirname(os.path.realpath(__file__))
 
-paramread, a_b, bins, weights = load_pkl(os.path.join(pwd, 'models/crisot_score_param.pkl'))
-
+with open(os.path.join(pwd, 'models/crisot_score_param.pkl'), 'rb') as f:
+    paramread = pickle.load(f)
 
 # with open(os.path.join(pwd, 'models/crisot_fingerprint_encoding.pkl'), 'rb') as f:
 #     featread = pickle.load(f)
 
 GENOME = os.path.join(pwd, 'script/hg38.na')
+model = CRISOT(param=paramread, ref_genome=GENOME)
 
-
-def cal_score(sgr, tar, ref_genome=GENOME):
-    model = CRISOT(param=paramread, ref_genome=ref_genome)
+def cal_score(sgr, tar):
     return model.single_score_(sgr, tar)
 
-def cal_scores(df_in, On='On', Off='Off', ref_genome=GENOME):
-    model = CRISOT(param=paramread, ref_genome=ref_genome)
+def cal_scores(df_in, On='On', Off='Off'):
     df_in['CRISOT_Score'] = model.score(data_df=df_in, On=On, Off=Off)
     return df_in
 
-def cal_spec(df_in, On='On', Off='Off', ref_genome=GENOME):
-    model = CRISOT(param=paramread, ref_genome=ref_genome)
+def cal_spec(df_in, On='On', Off='Off'):
     spec = model.spec(data_df=df_in, On=On, Off=Off, out_df=False)
     return spec
 
 def cal_casoffinder_spec(sgr, tar, ref_genome, mm=6, dev='G0'):
-    model = CRISOT(param=paramread, ref_genome=ref_genome)
+    model.ref_genome = ref_genome
     spec = model.CasoffinderSpec_(sgr, tar, mm=mm, dev=dev)
     return spec
 
-def rescore(targets, ref_genome, mm=6, dev='G0'):
-    model = CRISOT(param=paramread, ref_genome=ref_genome)
-    tsv_df = model.rescore(targets=targets, mm=mm, dev=dev)
+def rescore_chopchop(chop_df, ref_genome, top=None, mm=6, dev='G0'):
+    model.ref_genome = ref_genome
+    tsv_df = model.rescore_chopchop(chop_df=chop_df, top=top, mm=mm, dev=dev)
     return tsv_df
 
-def opti(tar, ref_genome, threshold=0.8, mm=6, dev='G0'):
-    model = CRISOT(param=paramread, ref_genome=ref_genome)
+def opti(tar, ref_genome, threshold=0.8, percent_activity_df=None, cd33cut=0.6, mm=6, dev='G0'):
+    model.ref_genome = ref_genome
     model.opti_th = threshold
-    csv_df = model.opti(target=tar, mm=mm, dev=dev)
+    csv_df = model.opti(target=tar, accepted_mutate=percent_activity_df, cd33cut=cd33cut, mm=mm, dev=dev)
     return csv_df
 
 def cal_crisot_fp(df_in, xgb_model):
@@ -64,8 +61,8 @@ def get_parser():
         scores: Batch calculation of CRISOT-Score, requires [--csv], options [--on_item, --off_item, --out]; \n \
         spec: Calculate CRISOT-Spec, on-target sequence must be in the first line, requires [--csv], options [--on_item, --off_item]; \n \
         off_spec: Perform Cas-Offinder search and calculate CRISOT-Spec, requires [--sgr, --tar, --genome], options [--mm, --dev]; \n \
-        rescore: Rescoring sgRNAs by CRISOT-Score and CRISOT-Spec, requires [--txt, --genome], options [--mm, --dev, --out]; \n \
-        opti: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --mm, --dev, --out]; \n \
+        rescore: Rescoring CHOPCHOP results by CRISOT-Score and CRISOT-Spec, requires [--tsv, --genome], options [--mm, --dev, --out]; \n \
+        opti: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --percent_activity_file, --percent_activity, --mm, --dev, --out]; \n \
         crisot_fp: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out] ")
     
     key_settings = parser.add_argument_group('# Key Settings')
@@ -75,12 +72,12 @@ def get_parser():
         help="Target DNA sequence to analyse (23nt, 20nt+PAM)")
     key_settings.add_argument("--csv", metavar="<file>", type=str, default=None, 
         help="CSV file containing sgRNA and Target DNA sequences, headers are On and Off, respectively. (spec: On-target sequence must be in the first line)")
-    key_settings.add_argument("--txt", metavar="<file>", type=str, default=None, 
-        help="TXT file of the designed sgRNAs.")
+    key_settings.add_argument("--tsv", metavar="<file>", type=str, default=None, 
+        help="TSV file of the result of CHOPCHOP sgRNA design, column name of the target sequences must be 'Target sequence'.")
     key_settings.add_argument("--genome", metavar="<file>", type=str, default=os.path.join(pwd, 'script/hg38.fa'), 
         help="Path to the file of reference genome. (default: script/hg38.fa)")
-    key_settings.add_argument("--xgb_model", metavar="<pkl file>", type=str, default=os.path.join(pwd, 'models/circleseq_xgb_models.pkl'), 
-        help="Path to the file of XGBoost models. (default: models/circleseq_xgb_models.pkl)")
+    key_settings.add_argument("--xgb_model", metavar="<pkl file>", type=str, default=os.path.join(pwd, 'models/guideseq_xgbcls_models.pkl'), 
+        help="Path to the file of XGBoost models. (default: models/guideseq_xgbcls_models.pkl)")
 
     out_setting = parser.add_argument_group("# Output Settings")
     out_setting.add_argument('--out', metavar="<file>", type=str, default='default', 
@@ -97,6 +94,10 @@ def get_parser():
         help="GPU/CPU device setting, the same as in the CasOffinder (default: C)")
     other_option.add_argument('--threshold', metavar="<float>", type=float, default=0.8, 
         help="The CRISOT-Score threshold for mutated sgRNAs. (default: 0.8)")
+    other_option.add_argument('--percent_activity_file', metavar="<file>", type=str, default=None, 
+        help="The percent-activity file for sgRNAs mutation. (default: None)")
+    other_option.add_argument('--percent_activity', metavar="<float>", type=float, default=0.6, 
+        help="The percent-activity threshold for sgRNAs mutation, works only when percent_activity_file is NOT None. (default: 0.6)")
 
     parser.add_argument('--version', action='version', version='CRISOT {}'.format(__version__))
 
@@ -108,6 +109,9 @@ def main():
     # Get the necessary arguments
     parser = get_parser()
     args = parser.parse_args()
+
+    # Setting CRISOT model
+    model.ref_genome = args.genome
     
     # Method 1: CRISOT-Score
     if args.method == 'score':
@@ -144,26 +148,30 @@ def main():
         print('CRISOT-Spec: \n' + str(spec))
     
     elif args.method == 'rescore':
-        assert os.path.exists(args.txt), 'CHOPCHOP tsv file <{}> not exists'.format(args.tsv)
+        assert os.path.exists(args.tsv), 'CHOPCHOP tsv file <{}> not exists'.format(args.tsv)
         assert os.path.exists(args.genome), '{}\n reference genome file not exists'.format(args.genome)
-        df_tsv = pd.read_csv(args.txt, header=None, index_col=None)
-        targets = df_tsv.iloc[:,0].values.tolist()
-        tsv_result = rescore(targets=targets, ref_genome=args.genome, mm=args.mm, dev=args.dev)
+        df_tsv = pd.read_csv(args.tsv, sep='\t', header=0, index_col=None)
+        tsv_result = rescore_chopchop(chop_df=df_tsv, ref_genome=args.genome, mm=args.mm, dev=args.dev, top=None)
         if args.out == 'default':
             tsv_result.to_csv('CRISOT_rescoring_results.tsv', sep='\t', index=False)
         else:
-            if args.out[-3:] == 'csv':
+            if args.out[-3:] == 'tsv':
                 out_name = args.out
             else:
-                out_name = args.out + '.csv'
-            tsv_result.to_csv(out_name, index=False)
+                out_name = args.out + '.tsv'
+            tsv_result.to_csv(out_name, sep='\t', index=False)
         print('CRISOT-Opti rescoring done')
 
     elif args.method == 'opti':
         assert len(args.tar) == 23, 'Target DNA sequence must be 23-nt with NGG PAM'
         assert os.path.exists(args.genome), '{}\n reference genome file not exists'.format(args.genome)
-
-        opti_result = opti(args.tar, ref_genome=args.genome, threshold=args.threshold, mm=args.mm, dev=args.dev)
+        if args.percent_activity_file == 'None':
+            percent_activity_df = None
+        elif args.percent_activity_file == None:
+            percent_activity_df = None
+        else:
+            percent_activity_df = pd.read_csv(args.percent_activity_file, header=0, index_col=0)
+        opti_result = opti(args.tar, ref_genome=args.genome, threshold=args.threshold, percent_activity_df=percent_activity_df, cd33cut=args.percent_activity, mm=args.mm, dev=args.dev)
         if args.out == 'default':
             opti_result.to_csv('CRISOT-Opti_optimization_results.csv', index=False)
         else:

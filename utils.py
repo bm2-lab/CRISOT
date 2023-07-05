@@ -31,11 +31,11 @@ def FP_Encode(data_train, feat_dict, On='On', Off='Off'):
     X_train = X_train.reshape(X_train.shape[0], -1)
     return X_train
 
-def kfold_xgb_pred(model_path, X):
+def kfold_xgb_pred(model_path, X, y=None, kfold=5):
     kmodels = pickle.load(open(model_path, 'rb'))
     results = []
-    for key in kmodels.keys():
-        y_hat = kmodels[key].predict_proba(X)[:, 1]
+    for i in range(kfold):
+        y_hat = kmodels['model_{}'.format(i)].predict_proba(X)[:, 1]
         results.append(y_hat)
     results = np.array(results)
     y_hat = results.mean(axis=0)
@@ -48,6 +48,7 @@ def CRISOT_FP(model_path, dataread, feat_dict='default', On='On', Off='Off'):
     X = FP_Encode(dataread, feat_dict, On, Off)
     y_hat = kfold_xgb_pred(model_path, X)
     return y_hat
+
 
 
 
