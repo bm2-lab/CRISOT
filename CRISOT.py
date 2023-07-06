@@ -51,7 +51,15 @@ def opti(tar, ref_genome, threshold=0.8, mm=6, dev='G0'):
     return csv_df
 
 def cal_crisot_fp(df_in, xgb_model):
-    df_in['CRISOT_FP'] = CRISOT_FP(model_path=xgb_model, dataread=df_in)
+    if xgb_model == 'Circle-seq':
+        model_path = os.path.join(pwd, 'models/circleseq_xgb_models.pkl')
+    elif xgb_model == 'Site-seq':
+        model_path = os.path.join(pwd, 'models/siteseq_xgb_models.pkl')
+    elif xgb_model == 'Change-seq':
+        model_path = os.path.join(pwd, 'models/changeseq_xgb_models.pkl')
+    else:
+        raise ValueError(f'ERROR: {xgb_model} is not available. Please choose a proper model')
+    df_in['CRISOT_FP'] = CRISOT_FP(model_path=model_path, dataread=df_in)
     return df_in
 
 # setup the argument parser
@@ -79,8 +87,8 @@ def get_parser():
         help="TXT file of the designed sgRNAs.")
     key_settings.add_argument("--genome", metavar="<file>", type=str, default=os.path.join(pwd, 'script/hg38.fa'), 
         help="Path to the file of reference genome. (default: script/hg38.fa)")
-    key_settings.add_argument("--xgb_model", metavar="<pkl file>", type=str, default=os.path.join(pwd, 'models/circleseq_xgb_models.pkl'), 
-        help="Path to the file of XGBoost models. (default: models/circleseq_xgb_models.pkl)")
+    key_settings.add_argument("--xgb_model", metavar="<model name>", type=str, default='Circle-seq', 
+        help="Name of the XGBoost models. (Circle-seq, Site-seq or Change-seq, default: Circle-seq)")
 
     out_setting = parser.add_argument_group("# Output Settings")
     out_setting.add_argument('--out', metavar="<file>", type=str, default='default', 
@@ -176,7 +184,7 @@ def main():
 
     elif args.method == 'crisot_fp':
         assert os.path.exists(args.csv), '{} file not exists'.format(args.csv)
-        assert os.path.exists(args.xgb_model), 'XGBoost model file <{}> not exists'.format(args.xgb_model)
+        assert args.xgb_model is not None, 'Please select a xgboost model'
         df_csv = pd.read_csv(args.csv, header=0, index_col=None)
         scores = cal_crisot_fp(df_csv, args.xgb_model)
         if args.out == 'default':
