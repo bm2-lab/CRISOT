@@ -38,7 +38,7 @@ CRISOT suite includes several methods for off-target prediction and sgRNA optimi
 4. **off_spec**: Perform Cas-Offinder search and calculate CRISOT-Spec, requires [--sgr, --tar, --genome], options [--mm, --dev];
 5. **rescore**: Rescoring sgRNAs by CRISOT-Score and CRISOT-Spec, requires [--tsv, --genome], options [--mm, --dev, --out];
 6. **opti**: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --mm, --dev, --out];
-7. **crisot_fp**: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out]
+7. **crisot_fp**: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out, --on_item, --off_item]
 
 ### score
 Calculates the CRISOT-Score score of a given pair of sgRNA-DNA, e.g.,

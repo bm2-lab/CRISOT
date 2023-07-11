@@ -50,7 +50,7 @@ def opti(tar, ref_genome, threshold=0.8, mm=6, dev='G0'):
     csv_df = model.opti(target=tar, mm=mm, dev=dev)
     return csv_df
 
-def cal_crisot_fp(df_in, xgb_model):
+def cal_crisot_fp(df_in, xgb_model, On='On', Off='Off'):
     if xgb_model == 'Circle-seq':
         model_path = os.path.join(pwd, 'models/circleseq_xgb_models.pkl')
     elif xgb_model == 'Site-seq':
@@ -59,7 +59,7 @@ def cal_crisot_fp(df_in, xgb_model):
         model_path = os.path.join(pwd, 'models/changeseq_xgb_models.pkl')
     else:
         raise ValueError(f'ERROR: {xgb_model} is not available. Please choose a proper model')
-    df_in['CRISOT_FP'] = CRISOT_FP(model_path=model_path, dataread=df_in)
+    df_in['CRISOT_FP'] = CRISOT_FP(model_path=model_path, dataread=df_in, On=On, Off=Off)
     return df_in
 
 # setup the argument parser
@@ -74,7 +74,7 @@ def get_parser():
         off_spec: Perform Cas-Offinder search and calculate CRISOT-Spec, requires [--sgr, --tar, --genome], options [--mm, --dev]; \n \
         rescore: Rescoring sgRNAs by CRISOT-Score and CRISOT-Spec, requires [--txt, --genome], options [--mm, --dev, --out]; \n \
         opti: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --mm, --dev, --out]; \n \
-        crisot_fp: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out] ")
+        crisot_fp: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out, --on_item, --off_item] ")
     
     key_settings = parser.add_argument_group('# Key Settings')
     key_settings.add_argument("--sgr", metavar="<seq>", type=str, default=None, 
@@ -186,7 +186,7 @@ def main():
         assert os.path.exists(args.csv), '{} file not exists'.format(args.csv)
         assert args.xgb_model is not None, 'Please select a xgboost model'
         df_csv = pd.read_csv(args.csv, header=0, index_col=None)
-        scores = cal_crisot_fp(df_csv, args.xgb_model)
+        scores = cal_crisot_fp(df_csv, args.xgb_model, On=args.on_item, Off=args.off_item)
         if args.out == 'default':
             scores.to_csv('CRISOT-FP_results.csv', index=False)
         else:
