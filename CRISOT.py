@@ -8,7 +8,7 @@ from utils import *
 import os
 import pickle
 
-__version__ = 'v0.5'
+__version__ = 'v0.6'
 pwd = os.path.dirname(os.path.realpath(__file__))
 
 paramread, a_b, bins, weights = load_pkl(os.path.join(pwd, 'models/crisot_score_param.pkl'))
@@ -62,6 +62,10 @@ def cal_crisot_fp(df_in, xgb_model, On='On', Off='Off'):
     df_in['CRISOT_FP'] = CRISOT_FP(model_path=model_path, dataread=df_in, On=On, Off=Off)
     return df_in
 
+def gen_FP(sgr, tar):
+    df_out = FP_Encode_df(sgr, tar)
+    return df_out
+
 # setup the argument parser
 def get_parser():
     parser = argparse.ArgumentParser(description="CRISOT Suite "+__version__)
@@ -74,7 +78,9 @@ def get_parser():
         off_spec: Perform Cas-Offinder search and calculate CRISOT-Spec, requires [--sgr, --tar, --genome], options [--mm, --dev]; \n \
         rescore: Rescoring sgRNAs by CRISOT-Score and CRISOT-Spec, requires [--txt, --genome], options [--mm, --dev, --out]; \n \
         opti: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --mm, --dev, --out]; \n \
-        crisot_fp: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out, --on_item, --off_item] ")
+        crisot_fp: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out, --on_item, --off_item]; \
+        gen_fp: Generates the fingerprints for a given sgRNA-DNA pair, requires [--sgr, --tar], options [--out] \n "
+        )
     
     key_settings = parser.add_argument_group('# Key Settings')
     key_settings.add_argument("--sgr", metavar="<seq>", type=str, default=None, 
@@ -196,6 +202,20 @@ def main():
                 out_name = args.out + '.csv'
             scores.to_csv(out_name, index=False)
         print('CRISOT-FP calculation done')
+
+    elif args.method == 'gen_fp':
+        assert len(args.sgr) == 23, 'sgRNA sequence must be 23-nt with NGG PAM'
+        assert len(args.tar) == 23, 'Target DNA sequence must be 23-nt with NGG PAM'
+        fp = gen_FP(args.sgr, args.tar)
+        if args.out == 'default':
+            fp.to_csv('CRISOT-FP_encoding.csv')
+        else:
+            if args.out[-3:] == 'csv':
+                out_name = args.out
+            else:
+                out_name = args.out + '.csv'
+            fp.to_csv(out_name)
+        print('CRISOT-FP encoding done')
 
     else:
         print('Please choose a correct method')

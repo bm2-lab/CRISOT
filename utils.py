@@ -31,6 +31,18 @@ def FP_Encode(data_train, feat_dict, On='On', Off='Off'):
     X_train = X_train.reshape(X_train.shape[0], -1)
     return X_train
 
+def FP_Encode_df(sgr, tar, feat_dict='default'):
+    if feat_dict == 'default':
+        featread = load_pkl(os.path.join(pwd, 'models/crisot_fingerprint_encoding.pkl'))
+        feat_dict = feature(featread)
+        col_name = [nm for nm in featread.columns]
+    X, ndx = [], []
+    for i in range(20):
+        X.append(feat_dict[sgr[i] + tar[i]])
+        ndx.append('Pos_' + str(i+1))
+    X_df = pd.DataFrame(X, index=ndx, columns=col_name)
+    return X_df
+
 def kfold_xgb_pred(model_path, X):
     kmodels = pickle.load(open(model_path, 'rb'))
     results = []

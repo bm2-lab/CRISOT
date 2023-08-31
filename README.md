@@ -46,6 +46,7 @@ CRISOT suite includes several methods for off-target prediction and sgRNA optimi
 5. **rescore**: Rescoring sgRNAs by CRISOT-Score and CRISOT-Spec, requires [--txt, --genome], options [--mm, --dev, --out];
 6. **opti**: CRISOT-Opti optimization by mutation, requires [--tar, --genome], options [--threshold, --mm, --dev, --out];
 7. **crisot_fp**: CRISOT-FP XGBoost machine learning prediction, requires [--csv], options [--xgb_model, --out, --on_item, --off_item]
+8. **gen_fp**: Generates the fingerprints for a given sgRNA-DNA pair, requires [--sgr, --tar], options [--out]
 
 ### score
 
@@ -159,6 +160,19 @@ python CRISOT.py crisot_fp --csv example/example.csv --out example/CRISOT-FP_exa
 ```
 
 NOTE & IMPORTANT: The trained XGBoost models are in [models](models/), please UNZIP them before using the *crisot_fp*.
+
+### gen_fp
+
+Generates the CRISOT-FP encoding results of a given pair of sgRNA-DNA, e.g.,
+
+```bash
+
+python CRISOT.py gen_fp --sgr GAGTCCGAGCAGAAGAAGAANGG --tar GAGTCCGAGCAGAAGAAGAANGG --out example/CRISOT-FP_example_encoding.csv
+
+# output CRISOT-FP encoding features: example/CRISOT-FP_example_encoding.csv
+
+```
+
 
 ## License
 
