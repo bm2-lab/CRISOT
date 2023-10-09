@@ -1,6 +1,7 @@
 # CRISOT: Genome-wide CRISPR off-target prediction and optimization based on RNA-DNA interaction fingerprints
 
 ✨The web server of CRISOT is now available at [CRISOT web server](https://crisot.aigene.org.cn/) (https://crisot.aigene.org.cn/).
+
 🚗The CRISOT suite is also available via [zenodo.8422214](https://doi.org/10.5281/zenodo.8422214).
 
 ## Introduction
