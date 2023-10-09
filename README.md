@@ -1,6 +1,7 @@
 # CRISOT: Genome-wide CRISPR off-target prediction and optimization based on RNA-DNA interaction fingerprints
 
 ✨The web server of CRISOT is now available at [CRISOT web server](https://crisot.aigene.org.cn/) (https://crisot.aigene.org.cn/).
+🚗The CRISOT suite is also available via [zenodo.8422214](https://doi.org/10.5281/zenodo.8422214).
 
 ## Introduction
 
@@ -160,6 +161,7 @@ python CRISOT.py crisot_fp --csv example/example.csv --out example/CRISOT-FP_exa
 ```
 
 NOTE & IMPORTANT: The trained XGBoost models are in [models](models/), please UNZIP them before using the *crisot_fp*.
+The training and testing datasets used in this study are available via [zenodo.8420032](https://doi.org/10.5281/zenodo.8420032).
 
 ### gen_fp
 

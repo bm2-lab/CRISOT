@@ -8,7 +8,7 @@ from utils import *
 import os
 import pickle
 
-__version__ = 'v0.6'
+__version__ = 'v1.0'
 pwd = os.path.dirname(os.path.realpath(__file__))
 
 paramread, a_b, bins, weights = load_pkl(os.path.join(pwd, 'models/crisot_score_param.pkl'))
