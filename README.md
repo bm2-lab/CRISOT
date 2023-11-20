@@ -1,8 +1,11 @@
 # CRISOT: Genome-wide CRISPR off-target prediction and optimization based on RNA-DNA interaction fingerprints
 
+Read [CRISOT paper](https://www.nature.com/articles/s41467-023-42695-4) via [https://www.nature.com/articles/s41467-023-42695-4](https://www.nature.com/articles/s41467-023-42695-4)
+
 ✨The web server of CRISOT is now available at [CRISOT web server](https://crisot.aigene.org.cn/) (https://crisot.aigene.org.cn/).
 
 🚗The CRISOT suite is also available via [zenodo.8422214](https://doi.org/10.5281/zenodo.8422214).
+
 
 ## Introduction
 
@@ -176,8 +179,8 @@ python CRISOT.py gen_fp --sgr GAGTCCGAGCAGAAGAAGAANGG --tar GAGTCCGAGCAGAAGAAGAA
 
 ```
 
-
 ## License
 
 The CRISOT suite is licensed under the creative commons license CC BY-NC2.0 (https://creativecommons.org/licenses/by-nc/2.0/).
 The authors have filed a patent application on CRISOT.
+The paper is published on [Nature Communications](https://www.nature.com/articles/s41467-023-42695-4).
