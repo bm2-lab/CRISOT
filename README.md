@@ -6,6 +6,8 @@ Read [CRISOT paper](https://www.nature.com/articles/s41467-023-42695-4) via [htt
 
 🚗The CRISOT suite is also available via [zenodo.8422214](https://doi.org/10.5281/zenodo.8422214).
 
+## Source data correction
+2026-10-15 The [source data](https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41467-023-42695-4/MediaObjects/41467_2023_42695_MOESM12_ESM.xlsx) for Figures 4d and S5 was passed incorrectly, resulting in duplicated data. Corrected file was provided in [data/source_data/corrected_source_data.xlsx](data/source_data/corrected_source_data.xlsx) with red highlight.
 
 ## Introduction
 
